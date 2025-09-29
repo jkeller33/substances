@@ -101,14 +101,29 @@
         function initParticles() {
             particles = [];
             if (currentSubstance.state === "gas") {
-                for (let i = 0; i < 6; i++) {
-                    particles.push({
-                        x: 300 + Math.random() * 200,
-                        y: 150 + Math.random() * 150,
-                        vx: (Math.random() - 0.5) * 3,
-                        vy: (Math.random() - 0.5) * 3,
-                        color: currentSubstance.atomColor
-                    });
+                if (currentSubstance.type === "Compound" && currentSubstance.name === "Carbon Dioxide") {
+                    // CO2 molecules
+                    for (let i = 0; i < 4; i++) {
+                        particles.push({
+                            x: 300 + Math.random() * 200,
+                            y: 150 + Math.random() * 150,
+                            vx: (Math.random() - 0.5) * 3,
+                            vy: (Math.random() - 0.5) * 3,
+                            type: "co2"
+                        });
+                    }
+                } else {
+                    // Element gases
+                    for (let i = 0; i < 6; i++) {
+                        particles.push({
+                            x: 300 + Math.random() * 200,
+                            y: 150 + Math.random() * 150,
+                            vx: (Math.random() - 0.5) * 3,
+                            vy: (Math.random() - 0.5) * 3,
+                            color: currentSubstance.atomColor,
+                            type: "element"
+                        });
+                    }
                 }
             } else if (currentSubstance.state === "dissolved") {
                 // Water molecules
@@ -148,8 +163,19 @@
                         y: 160 + Math.random() * 120,
                         vx: (Math.random() - 0.5) * 1.5,
                         vy: (Math.random() - 0.5) * 1.5,
-                        color: currentSubstance.atomColors[Math.floor(Math.random() * currentSubstance.atomColors.length)],
+                        color: currentSubstance.atomColors ? currentSubstance.atomColors[Math.floor(Math.random() * currentSubstance.atomColors.length)] : currentSubstance.atomColor,
                         type: "liquid"
+                    });
+                }
+            } else if (currentSubstance.name === "Carbon and oxygen") {
+                // Oxygen gas molecules for mixture
+                for (let i = 0; i < 3; i++) {
+                    particles.push({
+                        x: 350 + Math.random() * 100,
+                        y: 180 + Math.random() * 80,
+                        vx: (Math.random() - 0.5) * 2,
+                        vy: (Math.random() - 0.5) * 2,
+                        type: "oxygen"
                     });
                 }
             }
@@ -184,10 +210,58 @@
                     if (particle.x < 310 || particle.x > 490) particle.vx *= -1;
                     if (particle.y < 160 || particle.y > 290) particle.vy *= -1;
                     
-                    ctx.fillStyle = particle.color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, 15, 0, Math.PI * 2);
-                    ctx.fill();
+                    if (particle.type === "co2") {
+                        // CO2: C bonded to 2 O atoms
+                        const x = particle.x, y = particle.y;
+                        ctx.fillStyle = "#8B4513";
+                        ctx.beginPath();
+                        ctx.arc(x, y, 12, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = "#0000FF";
+                        ctx.beginPath();
+                        ctx.arc(x - 20, y, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(x + 20, y, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.strokeStyle = "#000";
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(x - 12, y);
+                        ctx.lineTo(x - 10, y);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.moveTo(x + 12, y);
+                        ctx.lineTo(x + 10, y);
+                        ctx.stroke();
+                    } else {
+                        // Element gases (single atoms or diatomic)
+                        if (currentSubstance.name === "Oxygen" || currentSubstance.name === "Hydrogen" || currentSubstance.name === "Chlorine") {
+                            // Diatomic molecules
+                            ctx.fillStyle = particle.color;
+                            ctx.beginPath();
+                            ctx.arc(particle.x, particle.y, 12, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.beginPath();
+                            ctx.arc(particle.x + 20, particle.y, 12, 0, Math.PI * 2);
+                            ctx.fill();
+                            
+                            ctx.strokeStyle = "#000";
+                            ctx.lineWidth = 2;
+                            ctx.beginPath();
+                            ctx.moveTo(particle.x + 12, particle.y);
+                            ctx.lineTo(particle.x + 8, particle.y);
+                            ctx.stroke();
+                        } else {
+                            // Single atoms
+                            ctx.fillStyle = particle.color;
+                            ctx.beginPath();
+                            ctx.arc(particle.x, particle.y, 15, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
                 });
             } else if (currentSubstance.state === "dissolved") {
                 // Draw mixture - separate ions in water
@@ -365,36 +439,72 @@
         }
 
         function drawMixture() {
-            particles.forEach(particle => {
-                particle.x += particle.vx;
-                particle.y += particle.vy;
-                
-                if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
-                if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
-                
-                if (particle.type === "water") {
-                    // Draw H2O molecules
-                    const x = particle.x, y = particle.y;
-                    ctx.fillStyle = "#0000FF";
+            if (currentSubstance.name === "Carbon and oxygen") {
+                // Carbon solid particles and oxygen gas molecules - separate
+                for (let i = 0; i < 4; i++) {
+                    const x = 330 + (i % 2) * 80;
+                    const y = 200 + Math.floor(i / 2) * 60;
+                    ctx.fillStyle = "#8B4513";
                     ctx.beginPath();
-                    ctx.arc(x, y, 8, 0, Math.PI * 2);
-                    ctx.fill();
-                    
-                    ctx.fillStyle = "#FF69B4";
-                    ctx.beginPath();
-                    ctx.arc(x - 10, y - 6, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.beginPath();
-                    ctx.arc(x + 10, y - 6, 5, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    // Draw separate ions
-                    ctx.fillStyle = particle.color;
-                    ctx.beginPath();
-                    ctx.arc(particle.x, particle.y, 10, 0, Math.PI * 2);
+                    ctx.arc(x, y, 15, 0, Math.PI * 2);
                     ctx.fill();
                 }
-            });
+                // Oxygen gas molecules (O2) moving around
+                particles.forEach(particle => {
+                    if (particle.type === "oxygen") {
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+                        if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
+                        if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
+                        
+                        ctx.fillStyle = "#0000FF";
+                        ctx.beginPath();
+                        ctx.arc(particle.x, particle.y, 12, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(particle.x + 20, particle.y, 12, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.strokeStyle = "#000";
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(particle.x + 12, particle.y);
+                        ctx.lineTo(particle.x + 8, particle.y);
+                        ctx.stroke();
+                    }
+                });
+            } else {
+                // Other mixtures - separate substances
+                particles.forEach(particle => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    
+                    if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
+                    if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
+                    
+                    if (particle.type === "water") {
+                        // Draw H2O molecules
+                        const x = particle.x, y = particle.y;
+                        ctx.fillStyle = "#0000FF";
+                        ctx.beginPath();
+                        ctx.arc(x, y, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        ctx.fillStyle = "#FF69B4";
+                        ctx.beginPath();
+                        ctx.arc(x - 10, y - 6, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.beginPath();
+                        ctx.arc(x + 10, y - 6, 5, 0, Math.PI * 2);
+                        ctx.fill();
+                    } else {
+                        // Draw separate ions/atoms
+                        ctx.fillStyle = particle.color;
+                        ctx.beginPath();
+                        ctx.arc(particle.x, particle.y, 10, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                });
+            }
         }
 
         function drawLiquidCompound() {
@@ -487,7 +597,7 @@
                 feedback = "You are Correct!!";
                 feedbackColor = "#0066FF";
                 correctAnswers++;
-                if (correctAnswers >= 4) {
+                if (correctAnswers >= 10) {
                     gameWon = true;
                     showEndScreen = true;
                 }
@@ -590,7 +700,7 @@
                 ctx.fillStyle = "#000";
                 ctx.font = "24px Arial";
                 ctx.textAlign = "left";
-                ctx.fillText(`Correct: ${correctAnswers}/4`, 50, 50);
+                ctx.fillText(`Correct: ${correctAnswers}/10`, 50, 50);
                 
                 drawFeedback();
             }
