@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Virtual Chemistry Lab</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #f0f0f0;
+            touch-action: manipulation;
+        }
+        canvas {
+            border: 2px solid #333;
+            background: white;
+            display: block;
+            margin: 0 auto;
+            cursor: pointer;
+        }
+        .title {
+            text-align: center;
+            font-size: 32px;
+            margin-bottom: 20px;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="title">Element, Compound or Mixture Virtual Lab</div>
+    <canvas id="labCanvas" width="800" height="600"></canvas>
+
+    <script>
+        const canvas = document.getElementById('labCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const substances = [
+            {name: "Na", type: "Element", state: "solid", bottleColor: "#C0C0C0", atomColor: "#FFD700", atoms: [{name: "Na", color: "#FFD700"}]},
+            {name: "Chlorine", type: "Element", state: "gas", bottleColor: "#FFFF00", atomColor: "#00FF00", atoms: [{name: "Cl", color: "#00FF00"}]},
+            {name: "NaCl", type: "Compound", state: "solid", bottleColor: "#FFFFFF", atomColors: ["#FFD700", "#00FF00"], atoms: [{name: "Na", color: "#FFD700"}, {name: "Cl", color: "#00FF00"}]},
+            {name: "NaCl in water", type: "Mixture", state: "dissolved", bottleColor: "#ADD8E6", atomColors: ["#FFD700", "#00FF00", "#0000FF"], atoms: [{name: "Na", color: "#FFD700"}, {name: "Cl", color: "#00FF00"}, {name: "H2O", color: "#0000FF"}]},
+            {name: "CaCl2", type: "Compound", state: "solid", bottleColor: "#FFFFFF", atomColors: ["#FFA500", "#00FF00"], atoms: [{name: "Ca", color: "#FFA500"}, {name: "Cl", color: "#00FF00"}]},
+            {name: "Calcium", type: "Element", state: "solid", bottleColor: "#C0C0C0", atomColor: "#FFA500", atoms: [{name: "Ca", color: "#FFA500"}]},
+            {name: "Water", type: "Compound", state: "liquid", bottleColor: "#ADD8E6", atomColors: ["#0000FF", "#FF69B4"], atoms: [{name: "H", color: "#FF69B4"}, {name: "O", color: "#0000FF"}]},
+            {name: "Hydrogen", type: "Element", state: "gas", bottleColor: "#FFE4E1", atomColor: "#FF69B4", atoms: [{name: "H", color: "#FF69B4"}]},
+            {name: "Oxygen", type: "Element", state: "gas", bottleColor: "#E0E0E0", atomColor: "#0000FF", atoms: [{name: "O", color: "#0000FF"}]},
+            {name: "Sugar", type: "Compound", state: "solid", bottleColor: "#FFFFFF", atomColors: ["#8B4513", "#0000FF", "#FF69B4"], atoms: [{name: "C", color: "#8B4513"}, {name: "O", color: "#0000FF"}, {name: "H", color: "#FF69B4"}]},
+            {name: "Sugar dissolved in water", type: "Mixture", state: "dissolved", bottleColor: "#ADD8E6", atomColors: ["#8B4513", "#0000FF", "#FF69B4"], atoms: [{name: "C", color: "#8B4513"}, {name: "O", color: "#0000FF"}, {name: "H", color: "#FF69B4"}]},
+            {name: "Zinc", type: "Element", state: "solid", bottleColor: "#C0C0C0", atomColor: "#708090", atoms: [{name: "Zn", color: "#708090"}]},
+            {name: "ZincSulfide", type: "Compound", state: "solid", bottleColor: "#FFFFFF", atomColors: ["#708090", "#FFFF00"], atoms: [{name: "Zn", color: "#708090"}, {name: "S", color: "#FFFF00"}]},
+            {name: "Sulfur", type: "Element", state: "solid", bottleColor: "#FFFF00", atomColor: "#FFFF00", atoms: [{name: "S", color: "#FFFF00"}]},
+            {name: "Zinc mixed with Sulfur", type: "Mixture", state: "solid", bottleColor: "#D3D3D3", atomColors: ["#708090", "#FFFF00"], atoms: [{name: "Zn", color: "#708090"}, {name: "S", color: "#FFFF00"}]},
+            {name: "Carbon", type: "Element", state: "solid", bottleColor: "#2F2F2F", atomColor: "#8B4513", atoms: [{name: "C", color: "#8B4513"}]},
+            {name: "Carbon Dioxide", type: "Compound", state: "gas", bottleColor: "#E0E0E0", atomColors: ["#8B4513", "#0000FF"], atoms: [{name: "C", color: "#8B4513"}, {name: "O", color: "#0000FF"}]},
+            {name: "Carbon and oxygen", type: "Mixture", state: "solid", bottleColor: "#D3D3D3", atomColors: ["#8B4513", "#0000FF"], atoms: [{name: "C", color: "#8B4513"}, {name: "O", color: "#0000FF"}]}
+        ];
+
+        const definitions = {
+            "Element": "An element is a pure substance made of only one type of atom.",
+            "Compound": "A compound is a pure substance made of two or more different atoms bonded together.",
+            "Mixture": "A mixture contains two or more substances that are not chemically bonded."
+        };
+
+        let currentSubstance = substances[Math.floor(Math.random() * substances.length)];
+        let showMicroscopic = false;
+        let correctAnswers = 0;
+        let feedback = "";
+        let feedbackColor = "#000";
+        let gameWon = false;
+        let showEndScreen = false;
+        let animationFrame = 0;
+        let particles = [];
+
+        function drawBottle() {
+            // Bottle body
+            ctx.fillStyle = currentSubstance.bottleColor;
+            ctx.fillRect(360, 180, 80, 120);
+            
+            // Bottle neck
+            ctx.fillRect(375, 160, 50, 20);
+            
+            // Bottle cap
+            ctx.fillStyle = "#8B4513";
+            ctx.fillRect(370, 150, 60, 15);
+            
+            // Bottle outline
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 3;
+            ctx.strokeRect(360, 180, 80, 120);
+            ctx.strokeRect(375, 160, 50, 20);
+            ctx.strokeRect(370, 150, 60, 15);
+            
+            // Label
+            ctx.fillStyle = "#000";
+            ctx.font = "16px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText(currentSubstance.name, 400, 330);
+        }
+
+        function initParticles() {
+            particles = [];
+            if (currentSubstance.state === "gas") {
+                for (let i = 0; i < 6; i++) {
+                    particles.push({
+                        x: 300 + Math.random() * 200,
+                        y: 150 + Math.random() * 150,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: (Math.random() - 0.5) * 3,
+                        color: currentSubstance.atomColor
+                    });
+                }
+            } else if (currentSubstance.state === "dissolved") {
+                // Water molecules
+                for (let i = 0; i < 12; i++) {
+                    particles.push({
+                        x: 320 + Math.random() * 160,
+                        y: 160 + Math.random() * 120,
+                        vx: (Math.random() - 0.5) * 1,
+                        vy: (Math.random() - 0.5) * 1,
+                        color: "#0000FF",
+                        type: "water"
+                    });
+                }
+                // Dissolved ions
+                for (let i = 0; i < 4; i++) {
+                    particles.push({
+                        x: 330 + Math.random() * 140,
+                        y: 170 + Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        color: currentSubstance.atomColors[0],
+                        type: "ion"
+                    });
+                    particles.push({
+                        x: 330 + Math.random() * 140,
+                        y: 170 + Math.random() * 100,
+                        vx: (Math.random() - 0.5) * 0.5,
+                        vy: (Math.random() - 0.5) * 0.5,
+                        color: currentSubstance.atomColors[1],
+                        type: "ion"
+                    });
+                }
+            } else if (currentSubstance.state === "liquid") {
+                for (let i = 0; i < 10; i++) {
+                    particles.push({
+                        x: 320 + Math.random() * 160,
+                        y: 160 + Math.random() * 120,
+                        vx: (Math.random() - 0.5) * 1.5,
+                        vy: (Math.random() - 0.5) * 1.5,
+                        color: currentSubstance.atomColors[Math.floor(Math.random() * currentSubstance.atomColors.length)],
+                        type: "liquid"
+                    });
+                }
+            }
+        }
+
+        function drawMicroscopic() {
+            animationFrame++;
+            
+            if (currentSubstance.state === "solid") {
+                if (currentSubstance.type === "Element") {
+                    // Solid element - vibrating atoms in grid
+                    ctx.fillStyle = currentSubstance.atomColor;
+                    for (let i = 0; i < 8; i++) {
+                        const baseX = 320 + (i % 4) * 60;
+                        const baseY = 170 + Math.floor(i / 4) * 60;
+                        const vibX = baseX + Math.sin(animationFrame * 0.2 + i) * 2;
+                        const vibY = baseY + Math.cos(animationFrame * 0.2 + i) * 2;
+                        ctx.beginPath();
+                        ctx.arc(vibX, vibY, 20, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                } else {
+                    // Solid compound - draw connected molecules
+                    drawCompoundMolecules();
+                }
+            } else if (currentSubstance.state === "gas") {
+                // Moving gas particles
+                particles.forEach(particle => {
+                    particle.x += particle.vx;
+                    particle.y += particle.vy;
+                    
+                    if (particle.x < 310 || particle.x > 490) particle.vx *= -1;
+                    if (particle.y < 160 || particle.y > 290) particle.vy *= -1;
+                    
+                    ctx.fillStyle = particle.color;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, 15, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            } else if (currentSubstance.state === "dissolved") {
+                // Draw mixture - separate ions in water
+                drawMixture();
+            } else if (currentSubstance.state === "liquid") {
+                // Draw liquid compounds as connected molecules
+                if (currentSubstance.type === "Compound") {
+                    drawLiquidCompound();
+                } else {
+                    particles.forEach(particle => {
+                        particle.x += particle.vx;
+                        particle.y += particle.vy;
+                        
+                        if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
+                        if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
+                        
+                        ctx.fillStyle = particle.color;
+                        ctx.beginPath();
+                        ctx.arc(particle.x, particle.y, 12, 0, Math.PI * 2);
+                        ctx.fill();
+                    });
+                }
+            }
+        }
+
+        function drawCompoundMolecules() {
+            for (let i = 0; i < 4; i++) {
+                const baseX = 340 + (i % 2) * 120;
+                const baseY = 180 + Math.floor(i / 2) * 80;
+                const vibX = baseX + Math.sin(animationFrame * 0.2 + i) * 2;
+                const vibY = baseY + Math.cos(animationFrame * 0.2 + i) * 2;
+                
+                if (currentSubstance.name === "Water") {
+                    // H2O: O in center, 2 H atoms
+                    ctx.fillStyle = "#0000FF";
+                    ctx.beginPath();
+                    ctx.arc(vibX, vibY, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#FF69B4";
+                    ctx.beginPath();
+                    ctx.arc(vibX - 25, vibY - 15, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(vibX + 25, vibY - 15, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(vibX - 20, vibY - 5);
+                    ctx.lineTo(vibX - 13, vibY - 12);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(vibX + 20, vibY - 5);
+                    ctx.lineTo(vibX + 13, vibY - 12);
+                    ctx.stroke();
+                } else if (currentSubstance.name === "CaCl2") {
+                    // CaCl2: Ca in center, 2 Cl atoms
+                    ctx.fillStyle = "#FFA500";
+                    ctx.beginPath();
+                    ctx.arc(vibX, vibY, 20, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#00FF00";
+                    ctx.beginPath();
+                    ctx.arc(vibX - 35, vibY, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(vibX + 35, vibY, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(vibX - 20, vibY);
+                    ctx.lineTo(vibX - 19, vibY);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(vibX + 20, vibY);
+                    ctx.lineTo(vibX + 19, vibY);
+                    ctx.stroke();
+                } else if (currentSubstance.name === "Carbon Dioxide") {
+                    // CO2: C in center, 2 O atoms connected
+                    ctx.fillStyle = "#8B4513";
+                    ctx.beginPath();
+                    ctx.arc(vibX, vibY, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#0000FF";
+                    ctx.beginPath();
+                    ctx.arc(vibX - 30, vibY, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(vibX + 30, vibY, 16, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(vibX - 18, vibY);
+                    ctx.lineTo(vibX - 14, vibY);
+                    ctx.stroke();
+                    ctx.beginPath();
+                    ctx.moveTo(vibX + 18, vibY);
+                    ctx.lineTo(vibX + 14, vibY);
+                    ctx.stroke();
+                } else if (currentSubstance.name === "Sugar") {
+                    // C6H12O6: simplified ring structure
+                    const centerX = vibX, centerY = vibY;
+                    const radius = 25;
+                    
+                    // Draw 6 carbon atoms in a ring
+                    for (let j = 0; j < 6; j++) {
+                        const angle = (j * Math.PI * 2) / 6;
+                        const x = centerX + Math.cos(angle) * radius;
+                        const y = centerY + Math.sin(angle) * radius;
+                        
+                        ctx.fillStyle = "#8B4513";
+                        ctx.beginPath();
+                        ctx.arc(x, y, 8, 0, Math.PI * 2);
+                        ctx.fill();
+                        
+                        // Add H and O atoms around carbons (simplified)
+                        if (j % 2 === 0) {
+                            ctx.fillStyle = "#FF69B4";
+                            ctx.beginPath();
+                            ctx.arc(x + Math.cos(angle) * 15, y + Math.sin(angle) * 15, 5, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                        if (j % 3 === 0) {
+                            ctx.fillStyle = "#0000FF";
+                            ctx.beginPath();
+                            ctx.arc(x - Math.cos(angle) * 15, y - Math.sin(angle) * 15, 6, 0, Math.PI * 2);
+                            ctx.fill();
+                        }
+                    }
+                    
+                    // Draw bonds between carbons
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 1;
+                    for (let j = 0; j < 6; j++) {
+                        const angle1 = (j * Math.PI * 2) / 6;
+                        const angle2 = ((j + 1) * Math.PI * 2) / 6;
+                        const x1 = centerX + Math.cos(angle1) * radius;
+                        const y1 = centerY + Math.sin(angle1) * radius;
+                        const x2 = centerX + Math.cos(angle2) * radius;
+                        const y2 = centerY + Math.sin(angle2) * radius;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(x1, y1);
+                        ctx.lineTo(x2, y2);
+                        ctx.stroke();
+                    }
+                } else {
+                    // 1:1 compounds (NaCl, ZnS)
+                    ctx.fillStyle = currentSubstance.atomColors[0];
+                    ctx.beginPath();
+                    ctx.arc(vibX, vibY, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = currentSubstance.atomColors[1];
+                    ctx.beginPath();
+                    ctx.arc(vibX + 35, vibY, 18, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = "#000";
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(vibX + 18, vibY);
+                    ctx.lineTo(vibX + 17, vibY);
+                    ctx.stroke();
+                }
+            }
+        }
+
+        function drawMixture() {
+            particles.forEach(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                
+                if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
+                if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
+                
+                if (particle.type === "water") {
+                    // Draw H2O molecules
+                    const x = particle.x, y = particle.y;
+                    ctx.fillStyle = "#0000FF";
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#FF69B4";
+                    ctx.beginPath();
+                    ctx.arc(x - 10, y - 6, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + 10, y - 6, 5, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Draw separate ions
+                    ctx.fillStyle = particle.color;
+                    ctx.beginPath();
+                    ctx.arc(particle.x, particle.y, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawLiquidCompound() {
+            particles.forEach(particle => {
+                particle.x += particle.vx;
+                particle.y += particle.vy;
+                
+                if (particle.x < 320 || particle.x > 480) particle.vx *= -1;
+                if (particle.y < 160 || particle.y > 280) particle.vy *= -1;
+                
+                if (currentSubstance.name === "Water") {
+                    const x = particle.x, y = particle.y;
+                    // H2O molecule
+                    ctx.fillStyle = "#0000FF";
+                    ctx.beginPath();
+                    ctx.arc(x, y, 12, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#FF69B4";
+                    ctx.beginPath();
+                    ctx.arc(x - 15, y - 8, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + 15, y - 8, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (currentSubstance.name === "Carbon Dioxide") {
+                    const x = particle.x, y = particle.y;
+                    // CO2 molecule
+                    ctx.fillStyle = "#8B4513";
+                    ctx.beginPath();
+                    ctx.arc(x, y, 10, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.fillStyle = "#0000FF";
+                    ctx.beginPath();
+                    ctx.arc(x - 18, y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.beginPath();
+                    ctx.arc(x + 18, y, 8, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawAtomLegend() {
+            ctx.fillStyle = "#000";
+            ctx.font = "16px Arial";
+            ctx.textAlign = "left";
+            ctx.fillText("Atoms:", 550, 180);
+            
+            currentSubstance.atoms.forEach((atom, i) => {
+                const y = 200 + i * 30;
+                ctx.fillStyle = atom.color;
+                ctx.beginPath();
+                ctx.arc(570, y, 10, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = "#000";
+                ctx.fillText(atom.name, 590, y + 5);
+            });
+        }
+
+        function drawButtons() {
+            const buttons = ["Element", "Compound", "Mixture"];
+            const buttonRects = [];
+            
+            buttons.forEach((button, i) => {
+                const x = 150 + i * 170;
+                const y = 400;
+                const rect = {x, y, width: 140, height: 50};
+                buttonRects.push(rect);
+                
+                ctx.fillStyle = "#DDD";
+                ctx.fillRect(x, y, 140, 50);
+                ctx.strokeStyle = "#000";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, 140, 50);
+                
+                ctx.fillStyle = "#000";
+                ctx.font = "18px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText(button, x + 70, y + 32);
+            });
+            
+            return buttonRects;
+        }
+
+        function checkAnswer(answer) {
+            if (answer === currentSubstance.type) {
+                feedback = "You are Correct!!";
+                feedbackColor = "#0066FF";
+                correctAnswers++;
+                if (correctAnswers >= 4) {
+                    gameWon = true;
+                    showEndScreen = true;
+                }
+            } else {
+                feedback = `${definitions[currentSubstance.type]}`;
+                feedbackColor = "#FF0000";
+                if (correctAnswers > 0) correctAnswers--;
+            }
+        }
+
+        function resetGame() {
+            correctAnswers = 0;
+            gameWon = false;
+            showEndScreen = false;
+            feedback = "";
+            nextQuestion();
+        }
+        function nextQuestion() {
+            currentSubstance = substances[Math.floor(Math.random() * substances.length)];
+            showMicroscopic = false;
+            feedback = "";
+            initParticles();
+        }
+
+        function drawFeedback() {
+            if (feedback) {
+                ctx.fillStyle = feedbackColor;
+                ctx.font = "16px Arial";
+                ctx.textAlign = "left";
+                
+                const words = feedback.split(' ');
+                let lines = [];
+                let currentLine = '';
+                
+                words.forEach(word => {
+                    const testLine = currentLine + word + ' ';
+                    if (ctx.measureText(testLine).width < 700) {
+                        currentLine = testLine;
+                    } else {
+                        if (currentLine) lines.push(currentLine.trim());
+                        currentLine = word + ' ';
+                    }
+                });
+                if (currentLine) lines.push(currentLine.trim());
+                
+                lines.forEach((line, i) => {
+                    ctx.fillText(line, 50, 500 + i * 25);
+                });
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (showEndScreen) {
+                ctx.fillStyle = "#00CC00";
+                ctx.font = "48px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("YOU HAVE WON!", 400, 200);
+                
+                // Play Again button
+                ctx.fillStyle = "#DDD";
+                ctx.fillRect(250, 300, 140, 50);
+                ctx.strokeStyle = "#000";
+                ctx.lineWidth = 2;
+                ctx.strokeRect(250, 300, 140, 50);
+                ctx.fillStyle = "#000";
+                ctx.font = "18px Arial";
+                ctx.fillText("Play Again", 320, 330);
+                
+                // Quit button
+                ctx.fillStyle = "#DDD";
+                ctx.fillRect(410, 300, 140, 50);
+                ctx.strokeRect(410, 300, 140, 50);
+                ctx.fillText("Quit", 480, 330);
+                
+            } else if (gameWon) {
+                ctx.fillStyle = "#FF0000";
+                ctx.font = "24px Arial";
+                ctx.textAlign = "center";
+                ctx.fillText("Are you sure you are ready for a test in", 400, 280);
+                ctx.fillText("elements, compounds and mixtures?", 400, 320);
+            } else {
+                if (showMicroscopic) {
+                    drawMicroscopic();
+                    drawAtomLegend();
+                    ctx.fillStyle = "#000";
+                    ctx.font = "16px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Touch to return to bottle view", 400, 360);
+                } else {
+                    drawBottle();
+                    ctx.fillStyle = "#000";
+                    ctx.font = "16px Arial";
+                    ctx.textAlign = "center";
+                    ctx.fillText("Touch bottle to see microscopic view", 400, 370);
+                    drawButtons();
+                }
+                
+                ctx.fillStyle = "#000";
+                ctx.font = "24px Arial";
+                ctx.textAlign = "left";
+                ctx.fillText(`Correct: ${correctAnswers}/4`, 50, 50);
+                
+                drawFeedback();
+            }
+        }
+
+        function handleTouch(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const x = e.touches ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+            const y = e.touches ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+            
+            if (showEndScreen) {
+                // Check Play Again button
+                if (x >= 250 && x <= 390 && y >= 300 && y <= 350) {
+                    resetGame();
+                    return;
+                }
+                // Check Quit button
+                if (x >= 410 && x <= 550 && y >= 300 && y <= 350) {
+                    showEndScreen = false;
+                    gameWon = true;
+                    return;
+                }
+            }
+            
+            if (gameWon) return;
+            
+            // Check bottle touch
+            if (x >= 360 && x <= 440 && y >= 150 && y <= 300) {
+                showMicroscopic = !showMicroscopic;
+                if (showMicroscopic) initParticles();
+                draw();
+                return;
+            }
+            
+            // Check button touches
+            if (!showMicroscopic) {
+                const buttons = ["Element", "Compound", "Mixture"];
+                buttons.forEach((button, i) => {
+                    const buttonX = 150 + i * 170;
+                    const buttonY = 400;
+                    if (x >= buttonX && x <= buttonX + 140 && y >= buttonY && y <= buttonY + 50) {
+                        checkAnswer(button);
+                        draw();
+                        setTimeout(() => {
+                            nextQuestion();
+                            draw();
+                        }, 2000);
+                    }
+                });
+            }
+        }
+
+        canvas.addEventListener('touchstart', handleTouch);
+        canvas.addEventListener('click', handleTouch);
+
+        initParticles();
+        
+        function animate() {
+            draw();
+            requestAnimationFrame(animate);
+        }
+        
+        animate();
+    </script>
+</body>
+</html>
